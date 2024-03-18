@@ -1,62 +1,34 @@
-###############################################################################
-# Variables: Program ELF
-###############################################################################
-ELF_FILE ?= test.elf
+all:comp elab sim
+#--------------------------------------------------------
+export VERDI_HOME=/nfs/tools/synopsys/verdi/R-2020.12-SP1
+vlogan_opts=-full64 -v2005  +define+TRACE
 
-OBJCOPY ?= riscv32-unknown-elf-objcopy
-ifeq ($(shell which $(OBJCOPY)),)
-  ${error $(OBJCOPY) missing from PATH}
-endif
-ifeq ($(shell which iverilog),)
-  ${error iverilog missing from PATH - Icarus Verilog required}
-endif
+vcs_elab_opts=-full64 -debug_pp -t ps -licqueue -l elaborate.log -P ${VERDI_HOME}/share/PLI/VCS/LINUX64/novas.tab ${VERDI_HOME}/share/PLI/VCS/LINUX64/pli.a
+vcs_sim_opts=-ucli -licqueue -l sim.log
+top=top
+simfile = ./filelist.f
 
+comp:
+	vlogan ${vlogan_opts} +v2k -sverilog \
+	+incdir+./../../src/core \
+	-f $(simfile) \
+	-l ./vlogan.log \
+	
+elab:
+	vcs ${vcs_elab_opts} work.tb_${top} -o tb_${top}_simv \
+	-cm line+cond+fsm+branch+tgl \
+        -cm_name ${top} \
+        -cm_dir ./${top}.vdb
+sim:
+	./tb_${top}_simv ${vcs_sim_opts} -do simulate.do \
+        -cm line+cond+fsm+branch+tgl \
+        -cm_name ${top} \
+        -cm_dir ./${top}.vdb
 
-###############################################################################
-# Variables: Defaults
-###############################################################################
-TRACE          ?= 1
-
-SRC_V_DIR      ?= ../../src/core .
-SRC_DIR        ?= .
-
-EXE            ?= output.out
-
-###############################################################################
-# Variables: Verilog
-###############################################################################
-SRC_V       ?= $(foreach src,$(SRC_V_DIR),$(wildcard $(src)/*.v))
-
-VFLAGS      += $(patsubst %,-I%,$(SRC_V_DIR))
-VFLAGS      += -DTRACE=$(TRACE)
-VFLAGS      += -Dverilog_sim
-
-###############################################################################
-# Variables: Lists of objects, source and deps
-###############################################################################
-BUILD_DIR      ?= build/
-
-###############################################################################
-# Rules
-###############################################################################
-all: run
-
-$(BUILD_DIR):
-	@mkdir -p $@
-
-$(BUILD_DIR)/tcm.bin: $(ELF_FILE) | $(BUILD_DIR)
-	$(OBJCOPY) $< -O binary $@
-
-$(BUILD_DIR)/$(EXE): $(SRC_V) | $(BUILD_DIR)
-	@echo "# Compiling verilog"
-	iverilog $(VFLAGS) -o $@ $(SRC_V)
-
-run: $(BUILD_DIR)/$(EXE) $(BUILD_DIR)/tcm.bin
-	vvp $(BUILD_DIR)/$(EXE) -vcd
-
-view:
-	gtkwave waveform.vcd gtksettings.sav  
-
+verdi_lib:
+	vericom -sv +incdir+./../../src/core -f filelist.f
+verdi:
+	verdi -lib work -top tb_top -ssy -ssv &
 clean:
-	rm -rf $(BUILD_DIR) *.vcd
-
+	rm  -rf  *~  core  csrc  *simv  vc_hdrs.h  ucli.key  urg* *.log  novas.* \
+        *.fsdb* verdiLog  64* DVEfiles *.vpd *_report *.vdb *.daidir *.vf

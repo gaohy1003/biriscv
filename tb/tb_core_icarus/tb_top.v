@@ -11,11 +11,11 @@ initial
 begin
     $display("Starting bench");
 
-    if (`TRACE)
-    begin
-        $dumpfile("waveform.vcd");
-        $dumpvars(0, tb_top);
-    end
+   // if (`TRACE)
+   // begin
+   //     $dumpfile("waveform.vcd");
+   //     $dumpvars(0, tb_top);
+   // end
 
     // Reset
     clk = 0;
@@ -27,7 +27,7 @@ begin
     for (i=0;i<131072;i=i+1)
         mem[i] = 0;
 
-    f = $fopenr("./build/tcm.bin");
+    f = $fopen("./build/tcm.bin", "r");
     i = $fread(mem, f);
     for (i=0;i<131072;i=i+1)
         u_mem.write(i, mem[i]);
